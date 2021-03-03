@@ -1,0 +1,65 @@
+TF_CFLAGS=( $(python3 -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_compile_flags()))') )
+TF_LFLAGS=( $(python3 -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_link_flags()))') )
+
+g++ -std=c++11 -shared conv_by_index_2d.cc -o conv_by_index_2d.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared conv_by_index_input_grads.cc -o conv_by_index_input_grads.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared reduce_index.cc -o reduce_index.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared offset_correct.cc -o offset_correct.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared insert_zeros.cc -o insert_zeros.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared gather_angles.cc -o gather_angles.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared expand_index.cc -o expand_index.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared conv_by_index_weight_grads.cc -o conv_by_index_weight_grads.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared calculate_proportions.cc -o calculate_proportions.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+g++ -std=c++11 -shared weight_to_angle_gradients.cc -o weight_to_angle_gradients.so -fopenmp -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
+
+nvcc -std=c++11 -c -o reduce_index.cu.o reduce_index.cu.cc ${TF_CFLAGS[@]} -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+g++ -std=c++11 -shared -o reduce_index.so reduce_index.cc reduce_index.cu.o ${TF_CFLAGS[@]} -fPIC -lcudart ${TF_LFLAGS[@]}
+
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c --expt-relaxed-constexpr -o offset_correct.cu.o offset_correct.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o offset_correct.so offset_correct.cc offset_correct.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o conv_by_index_2d.cu.o conv_by_index_2d.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c --expt-relaxed-constexpr -x cu -Xcompiler -fPIC -o conv_by_index_2d.cu.o conv_by_index_2d.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DNDEBUG -DGOOGLE_CUDA=1 ${TF_CFLAGS[@]}
+
+g++ -std=c++11 -shared -fopenmp -fPIC ${TF_CFLAGS[@]} -o conv_by_index_2d.so conv_by_index_2d.cc conv_by_index_2d.cu.o -DGOOGLE_CUDA=1 -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o reduce_index.cu.o reduce_index.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o reduce_index.so reduce_index.cc reduce_index.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -x cu -Xcompiler -fPIC -I ../headers/ -o gather_angles.cu.o gather_angles.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES -DGOOGLE_CUDA=1 ${TF_CFLAGS[@]}
+
+g++ -std=c++11 -shared -I ../headers/ -o gather_angles.so gather_angles.cc gather_angles.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o expand_index.cu.o expand_index.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o expand_index.so expand_index.cc expand_index.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o conv_by_index_input_grads.cu.o conv_by_index_input_grads.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o conv_by_index_input_grads.so conv_by_index_input_grads.cc conv_by_index_input_grads.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o conv_by_index_weight_grads.cu.o conv_by_index_weight_grads.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o conv_by_index_weight_grads.so conv_by_index_weight_grads.cc conv_by_index_weight_grads.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o calculate_proportions.cu.o calculate_proportions.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o calculate_proportions.so calculate_proportions.cc calculate_proportions.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o weight_to_angle_gradients.cu.o weight_to_angle_gradients.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o weight_to_angle_gradients.so weight_to_angle_gradients.cc weight_to_angle_gradients.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o pool_by_index.cu.o pool_by_index.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o pool_by_index.so pool_by_index.cc pool_by_index.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
+
+CPATH=$CPATH:/usr/local/ nvcc -std=c++11 -c -DNDEBUG --expt-relaxed-constexpr -o upsample_index.cu.o upsample_index.cu.cc -D_MWAITXINTRIN_H_INCLUDED -D_FORCE_INLINES ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC
+
+g++ -std=c++11 -shared -o upsample_index.so upsample_index.cc upsample_index.cu.o ${TF_CFLAGS[@]} -DGOOGLE_CUDA=1 -fopenmp -fPIC -L/usr/local/cuda/lib64 -lcudart ${TF_LFLAGS[@]}
